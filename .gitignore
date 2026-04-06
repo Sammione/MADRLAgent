@@ -1,0 +1,14 @@
+# Python
+__pycache__/
+*.pyc
+venv/
+.env
+
+# Node/React
+node_modules/
+dist/
+portfolio-web/node_modules/
+portfolio-web/dist/
+
+# OS
+.DS_Store
