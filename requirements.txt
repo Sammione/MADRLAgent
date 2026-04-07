@@ -4,3 +4,4 @@ pydantic
 pandas
 numpy
 torch
+matplotlib
