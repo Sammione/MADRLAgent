@@ -5,48 +5,54 @@ import {
 import { Settings, Play, BrainCircuit, Activity, DollarSign, TrendingUp, BarChart3 } from 'lucide-react';
 import './App.css';
 
-const generateBacktestData = (episodes) => {
-  const data = [];
-  let aiBalance = 1000000;
-  let benchBalance = 1000000;
-  
-  for(let i=0; i<365; i++) {
-    const marketReturn = (Math.random() - 0.48) * 0.02;
-    const aiAlpha = (Math.random() - 0.4) * 0.015;
-    
-    benchBalance = benchBalance * (1 + marketReturn);
-    aiBalance = aiBalance * (1 + marketReturn + aiAlpha);
-    
-    data.push({
-      day: `Day ${i+1}`,
-      agent: Math.round(aiBalance),
-      benchmark: Math.round(benchBalance)
-    });
-  }
-  return data;
-};
-
 function App() {
   const [isSimulating, setIsSimulating] = useState(false);
-  const [data, setData] = useState([]);
+  const [data, setData] = useState([{ day: 'Day 1', agent: 1000000, benchmark: 1000000 }]);
   
   const [params, setParams] = useState({
     windowSize: 20,
     cost: 0.1,
     testSplit: 20,
-    episodes: 5
+    episodes: 2
   });
 
-  useEffect(() => {
-    setData(generateBacktestData(params.episodes));
-  }, []);
-
-  const handleSimulate = () => {
+  const handleSimulate = async () => {
     setIsSimulating(true);
-    setTimeout(() => {
-      setData(generateBacktestData(params.episodes));
+    try {
+      // Use Environment Variable, fallback to your direct Render URL
+      const apiUrl = import.meta.env.VITE_API_URL || 'https://madrlagent.onrender.com';
+      
+      const response = await fetch(`${apiUrl}/run-simulation`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          window_size: params.windowSize,
+          transaction_cost: params.cost / 100.0,
+          test_split: params.testSplit / 100.0,
+          episodes: params.episodes
+        })
+      });
+      
+      if (!response.ok) {
+         throw new Error(`Simulation failed: ${response.statusText}`);
+      }
+      
+      const result = await response.json();
+      
+      // Transform the arrays from backend into the format Recharts expects
+      const formattedData = result.ai_portfolio_history.map((val, index) => ({
+        day: `Day ${index + 1}`,
+        agent: Math.round(val),
+        benchmark: Math.round(result.benchmark_history[index])
+      }));
+      
+      setData(formattedData);
+    } catch (error) {
+      console.error(error);
+      alert("Error connecting to backend or running simulation!");
+    } finally {
       setIsSimulating(false);
-    }, 1500);
+    }
   };
 
   const latestData = data[data.length - 1] || { agent: 1000000, benchmark: 1000000 };
@@ -92,7 +98,7 @@ function App() {
         <div className="control-group">
           <label>Training Episodes: {params.episodes}</label>
           <input 
-            type="range" min="1" max="50" 
+            type="range" min="1" max="20" 
             value={params.episodes} 
             onChange={(e) => setParams({...params, episodes: parseInt(e.target.value)})} 
           />
@@ -100,7 +106,7 @@ function App() {
 
         <button className="run-btn" onClick={handleSimulate} disabled={isSimulating}>
           {isSimulating ? <Activity className="animate-spin" /> : <Play />}
-          {isSimulating ? 'Simulating...' : 'Run Live Backtest'}
+          {isSimulating ? 'Simulating in Cloud...' : 'Run Live Backtest'}
         </button>
       </aside>
 
